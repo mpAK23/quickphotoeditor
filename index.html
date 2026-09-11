@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fast Photo Prep &amp; Notan Studio</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="3" y1="9" x2="21" y2="9"></line>
+          <line x1="3" y1="15" x2="21" y2="15"></line>
+          <line x1="9" y1="3" x2="9" y2="21"></line>
+          <line x1="15" y1="3" x2="15" y2="21"></line>
+        </svg>
+      </div>
+      <div>
+        <h1>Fast Photo Prep &amp; Notan Studio</h1>
+        <p class="tagline">Drawing reference prep, Rule of Thirds &amp; Value Studies</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <label class="btn btn-primary" for="fileInput">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        <span>Open JPG / PNG</span>
+      </label>
+      <input type="file" id="fileInput" accept="image/jpeg,image/png,image/jpg" style="display:none;">
+    </div>
+  </header>
+
+  <main class="app-layout">
+    <!-- Top Workspace: Image & Tool Controls -->
+    <section class="workspace-section">
+      <!-- Toolbar Controls -->
+      <div class="toolbar" id="toolbar">
+        <div class="tool-group">
+          <span class="group-title">Rotate</span>
+          <button type="button" class="btn btn-tool" id="btnRotateCCW" title="Rotate 90° Counter-Clockwise">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 4v6h6"></path>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+            </svg>
+            <span>90° Left</span>
+          </button>
+          <button type="button" class="btn btn-tool" id="btnRotateCW" title="Rotate 90° Clockwise">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6"></path>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+            <span>90° Right</span>
+          </button>
+        </div>
+
+        <div class="tool-separator"></div>
+
+        <div class="tool-group">
+          <span class="group-title">Crop</span>
+          <button type="button" class="btn btn-tool" id="btnToggleCrop" title="Activate Crop Box">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"></path>
+              <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"></path>
+            </svg>
+            <span id="cropBtnLabel">Crop Tool</span>
+          </button>
+          <!-- Always-on-screen Aspect Ratio Dropdown & Reset Circular Arrow -->
+          <div id="cropActionGroup" class="crop-actions">
+            <select id="cropRatioSelect" class="select-input" title="Aspect Ratio (Double-click image to apply)">
+              <option value="free">Free</option>
+              <option value="1:1">1:1 Square</option>
+              <option value="4:3">4:3 Standard</option>
+              <option value="3:2">3:2 Classic</option>
+              <option value="16:9">16:9 Widescreen</option>
+            </select>
+            <button type="button" class="btn btn-tool btn-circle-reset" id="btnResetCrop" title="Reset Crop (Double-click to apply crop)">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <polyline points="3 3 3 8 8 8"></polyline>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="tool-separator"></div>
+
+        <div class="tool-group">
+          <span class="group-title">Adjustments</span>
+          <label class="toggle-control" title="Convert to Black &amp; White">
+            <input type="checkbox" id="chkBW">
+            <span class="checkbox-custom"></span>
+            <span class="toggle-label">B&amp;W Conversion</span>
+          </label>
+          <button type="button" class="btn btn-tool active" id="btnToggleLevels" title="Toggle Photoshop Levels, Contrast &amp; Brightness Controls">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="4" y1="21" x2="4" y2="14"></line>
+              <line x1="4" y1="10" x2="4" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12" y2="3"></line>
+              <line x1="20" y1="21" x2="20" y2="16"></line>
+              <line x1="20" y1="12" x2="20" y2="3"></line>
+              <line x1="1" y1="14" x2="7" y2="14"></line>
+              <line x1="9" y1="8" x2="15" y2="8"></line>
+              <line x1="17" y1="16" x2="23" y2="16"></line>
+            </svg>
+            <span>Levels &amp; Tone</span>
+          </button>
+        </div>
+
+        <div class="tool-separator"></div>
+
+        <div class="tool-group">
+          <span class="group-title">Rule of Thirds</span>
+          <label class="toggle-control" title="Show Rule of Thirds lines on screen (5px Magenta, auto-scaled)">
+            <input type="checkbox" id="chkGrid" checked>
+            <span class="checkbox-custom"></span>
+            <span class="toggle-label">5px Magenta Grid</span>
+          </label>
+          <label class="toggle-control" title="Include scaled grid lines in the exported image">
+            <input type="checkbox" id="chkGridOnExport" checked>
+            <span class="checkbox-custom"></span>
+            <span class="toggle-label">Include in Export</span>
+          </label>
+        </div>
+
+        <div class="tool-separator"></div>
+
+        <!-- Export Quality Radio Buttons (Low, Medium, High with px size & file size) -->
+        <div class="tool-group tool-quality-group">
+          <span class="group-title">Export Quality</span>
+          <div class="quality-radios" id="qualityRadioGroup">
+            <label class="radio-control" title="High Quality: Full resolution, maximum detail">
+              <input type="radio" name="exportQuality" value="high" checked>
+              <span class="radio-custom"></span>
+              <span class="radio-text">
+                <span class="radio-name">High</span>
+                <span class="radio-meta" id="metaQualityHigh">-- px &bull; -- KB</span>
+              </span>
+            </label>
+            <label class="radio-control" title="Medium Quality: 75% resolution, balanced size">
+              <input type="radio" name="exportQuality" value="medium">
+              <span class="radio-custom"></span>
+              <span class="radio-text">
+                <span class="radio-name">Medium</span>
+                <span class="radio-meta" id="metaQualityMedium">-- px &bull; -- KB</span>
+              </span>
+            </label>
+            <label class="radio-control" title="Low Quality: 50% resolution, lightweight">
+              <input type="radio" name="exportQuality" value="low">
+              <span class="radio-custom"></span>
+              <span class="radio-text">
+                <span class="radio-name">Low</span>
+                <span class="radio-meta" id="metaQualityLow">-- px &bull; -- KB</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div class="tool-separator"></div>
+
+        <div class="tool-group tool-export">
+          <button type="button" class="btn btn-export" id="btnExportMain" title="Export edited drawing source">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Export Image (<span id="exportNameLabel">_edit</span>)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Levels & Tone Adjustment Panel (Photoshop Levels, Contrast, Brightness) -->
+      <div class="levels-panel" id="levelsPanel">
+        <div class="levels-panel-header">
+          <div class="levels-title">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20v-6M6 20V10M18 20V4"></path>
+            </svg>
+            <strong>Photoshop Levels &amp; Tonal Adjustments</strong>
+            <span class="levels-subtext">Drag sliders to adjust image contrast, exposure, and black/white clipping points</span>
+          </div>
+          <button type="button" class="btn btn-tool btn-sm" id="btnResetAdjustments" title="Reset Brightness, Contrast &amp; Levels to defaults">
+            Reset Levels &amp; Tone
+          </button>
+        </div>
+
+        <div class="levels-grid">
+          <!-- Brightness -->
+          <div class="tone-control-col">
+            <div class="tone-label-row">
+              <label for="sliderBrightness">Brightness</label>
+              <span class="tone-val" id="valBrightness">0</span>
+            </div>
+            <input type="range" id="sliderBrightness" min="-100" max="100" value="0" step="1">
+            <div class="slider-labels">
+              <span>-100</span>
+              <span>Default (0)</span>
+              <span>+100</span>
+            </div>
+          </div>
+
+          <!-- Contrast -->
+          <div class="tone-control-col">
+            <div class="tone-label-row">
+              <label for="sliderContrast">Contrast</label>
+              <span class="tone-val" id="valContrast">0</span>
+            </div>
+            <input type="range" id="sliderContrast" min="-100" max="100" value="0" step="1">
+            <div class="slider-labels">
+              <span>-100</span>
+              <span>Default (0)</span>
+              <span>+100</span>
+            </div>
+          </div>
+
+          <!-- Input Black Point -->
+          <div class="tone-control-col">
+            <div class="tone-label-row">
+              <label for="sliderLevelBlack" title="Photoshop Levels Shadow / Black Point">Levels: Black Point</label>
+              <span class="tone-val" id="valLevelBlack">0</span>
+            </div>
+            <input type="range" id="sliderLevelBlack" min="0" max="250" value="0" step="1">
+            <div class="slider-labels">
+              <span>0 (Shadows)</span>
+              <span>Clip Darks</span>
+              <span>250</span>
+            </div>
+          </div>
+
+          <!-- Input Midtones / Gamma -->
+          <div class="tone-control-col">
+            <div class="tone-label-row">
+              <label for="sliderLevelGamma" title="Photoshop Levels Midtones / Gamma">Levels: Midtones (&gamma;)</label>
+              <span class="tone-val" id="valLevelGamma">1.00</span>
+            </div>
+            <input type="range" id="sliderLevelGamma" min="0.2" max="3.0" value="1.00" step="0.02">
+            <div class="slider-labels">
+              <span>0.2 (Darker)</span>
+              <span>1.00</span>
+              <span>3.0 (Lighter)</span>
+            </div>
+          </div>
+
+          <!-- Input White Point -->
+          <div class="tone-control-col">
+            <div class="tone-label-row">
+              <label for="sliderLevelWhite" title="Photoshop Levels Highlight / White Point">Levels: White Point</label>
+              <span class="tone-val" id="valLevelWhite">255</span>
+            </div>
+            <input type="range" id="sliderLevelWhite" min="5" max="255" value="255" step="1">
+            <div class="slider-labels">
+              <span>5</span>
+              <span>Clip Lights</span>
+              <span>255 (Highlights)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Canvas Viewport -->
+      <div class="canvas-container" id="canvasContainer">
+        <!-- Drag & Drop Overlay / Initial Empty State -->
+        <div class="dropzone" id="dropzone">
+          <div class="dropzone-content">
+            <div class="dropzone-icon">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+            </div>
+            <h3>Drop your photo here (JPG or PNG)</h3>
+            <p>or click "Open JPG / PNG" in the top bar to get started</p>
+            <div class="file-badges">
+              <span class="badge">JPG / JPEG</span>
+              <span class="badge">PNG</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Canvas Wrapper for Main Image & Overlays -->
+        <div class="canvas-stage" id="canvasStage" style="display:none;">
+          <canvas id="mainCanvas"></canvas>
+          <canvas id="gridOverlayCanvas"></canvas>
+          
+          <!-- Interactive Crop Box Overlay -->
+          <div id="cropOverlay" class="crop-overlay hidden">
+            <div class="crop-box" id="cropBox">
+              <div class="crop-handle handle-nw" data-handle="nw"></div>
+              <div class="crop-handle handle-ne" data-handle="ne"></div>
+              <div class="crop-handle handle-sw" data-handle="sw"></div>
+              <div class="crop-handle handle-se" data-handle="se"></div>
+              <div class="crop-handle handle-n" data-handle="n"></div>
+              <div class="crop-handle handle-s" data-handle="s"></div>
+              <div class="crop-handle handle-w" data-handle="w"></div>
+              <div class="crop-handle handle-e" data-handle="e"></div>
+              <div class="crop-grid-lines">
+                <div class="crop-line-v v1"></div>
+                <div class="crop-line-v v2"></div>
+                <div class="crop-line-h h1"></div>
+                <div class="crop-line-h h2"></div>
+              </div>
+              <div class="crop-double-click-badge">Double-click image to apply</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Image Info Bar -->
+      <div class="info-bar" id="infoBar" style="display:none;">
+        <div class="info-item">
+          <span class="info-label">File:</span>
+          <span class="info-val" id="infoFilename">-</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Dimensions:</span>
+          <span class="info-val" id="infoDimensions">-</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Rule of Thirds:</span>
+          <span class="info-val">5 px Magenta (Scaled)</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Color Mode:</span>
+          <span class="info-val" id="infoColorMode">Color</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom Section: 2-Value & 3-Value Notan Studies -->
+    <section class="notan-section">
+      <div class="section-title-bar">
+        <div>
+          <h2>Notan Value Studies for Artists</h2>
+          <p class="section-subtitle">Simplified light &amp; dark design patterns derived from your composition</p>
+        </div>
+      </div>
+
+      <div class="notan-grid">
+        <!-- 2-Value Notan Card (Left) -->
+        <article class="notan-card" id="cardNotan2">
+          <div class="notan-card-header">
+            <div class="notan-title-group">
+              <span class="notan-badge">2 Values</span>
+              <h3 class="notan-title">2-Value Notan</h3>
+              <span class="notan-desc">Pure light and dark structure</span>
+            </div>
+            <!-- Download Icon above and towards the right side of the image -->
+            <button type="button" class="btn-icon-download" id="btnDownloadNotan2" title="Download 2-Value Notan (_notan2)">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span class="download-tooltip">Download _notan2</span>
+            </button>
+          </div>
+
+          <div class="notan-canvas-wrap">
+            <canvas id="notan2Canvas"></canvas>
+            <div class="notan-placeholder" id="notan2Placeholder">
+              <span>Load an image above to generate 2-value Notan</span>
+            </div>
+          </div>
+
+          <div class="notan-controls">
+            <div class="slider-row">
+              <label for="sliderNotan2">Threshold (Light / Dark Balance):</label>
+              <span class="slider-val" id="valNotan2">128</span>
+            </div>
+            <input type="range" id="sliderNotan2" min="10" max="245" value="128" step="1">
+            <div class="slider-labels">
+              <span>More Light</span>
+              <button type="button" class="btn-link" id="btnAutoNotan2">Auto Balance</button>
+              <span>More Dark</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- 3-Value Notan Card (Right) -->
+        <article class="notan-card" id="cardNotan3">
+          <div class="notan-card-header">
+            <div class="notan-title-group">
+              <span class="notan-badge notan-badge-3">3 Values</span>
+              <h3 class="notan-title">3-Value Notan</h3>
+              <span class="notan-desc">Shadow, midtone gray, and light</span>
+            </div>
+            <!-- Download Icon above and towards the right side of the image -->
+            <button type="button" class="btn-icon-download" id="btnDownloadNotan3" title="Download 3-Value Notan (_notan3)">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span class="download-tooltip">Download _notan3</span>
+            </button>
+          </div>
+
+          <div class="notan-canvas-wrap">
+            <canvas id="notan3Canvas"></canvas>
+            <div class="notan-placeholder" id="notan3Placeholder">
+              <span>Load an image above to generate 3-value Notan</span>
+            </div>
+          </div>
+
+          <div class="notan-controls">
+            <div class="slider-row">
+              <label for="sliderNotan3Shadow">Shadow Split (Dark / Midtone):</label>
+              <span class="slider-val" id="valNotan3Shadow">85</span>
+            </div>
+            <input type="range" id="sliderNotan3Shadow" min="15" max="150" value="85" step="1">
+            
+            <div class="slider-row" style="margin-top: 8px;">
+              <label for="sliderNotan3Highlight">Highlight Split (Midtone / Light):</label>
+              <span class="slider-val" id="valNotan3Highlight">170</span>
+            </div>
+            <input type="range" id="sliderNotan3Highlight" min="110" max="240" value="170" step="1">
+
+            <div class="slider-labels" style="margin-top: 4px;">
+              <span>3-Value Distribution</span>
+              <button type="button" class="btn-link" id="btnAutoNotan3">Auto Balance</button>
+              <span>Shadow / Mid / Light</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>Fast Photo Prep &amp; Notan Studio &bull; Ready for Drawing &bull; Client-side &amp; GitHub Pages Ready</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
