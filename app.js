@@ -54,6 +54,20 @@
   const cropOverlay = document.getElementById('cropOverlay');
   const cropBox = document.getElementById('cropBox');
 
+  // Perspective Crop DOM Elements
+  const btnTogglePerspective = document.getElementById('btnTogglePerspective');
+  const perspectiveOverlay = document.getElementById('perspectiveOverlay');
+  const perspectiveSvg = document.getElementById('perspectiveSvg');
+  const perspectiveMask = document.getElementById('perspectiveMask');
+  const perspectivePolygon = document.getElementById('perspectivePolygon');
+  const perspectiveGrid = document.getElementById('perspectiveGrid');
+  const perspHandles = [
+    document.getElementById('perspHandleTL'),
+    document.getElementById('perspHandleTR'),
+    document.getElementById('perspHandleBR'),
+    document.getElementById('perspHandleBL')
+  ];
+
   const chkBW = document.getElementById('chkBW');
   const chkGrid = document.getElementById('chkGrid');
   const chkGridOnExport = document.getElementById('chkGridOnExport');
@@ -97,6 +111,17 @@
   let activeHandle = null;
   let dragStart = { x: 0, y: 0 };
   let initialCropRect = { ...cropRect };
+
+  // Perspective Crop State (Normalized coordinates [0, 1]: 0: TL, 1: TR, 2: BR, 3: BL)
+  let isPerspectiveMode = false;
+  let perspCorners = [
+    { x: 0.08, y: 0.08 },
+    { x: 0.92, y: 0.08 },
+    { x: 0.92, y: 0.92 },
+    { x: 0.08, y: 0.92 }
+  ];
+  let activePerspCorner = null; // 0..3 or null
+  let perspDragStart = { x: 0, y: 0 };
 
   // --- File Loading ---
   fileInput.addEventListener('change', (e) => {
@@ -184,6 +209,8 @@
     cropRatioSelect.value = 'free';
     chkCropPortrait.checked = img.naturalHeight > img.naturalWidth;
     exitCropMode();
+    exitPerspectiveMode();
+    resetPerspectiveCorners();
     updateMainDisplay();
     autoBalanceNotans();
   }
@@ -381,6 +408,9 @@
   window.addEventListener('resize', () => {
     if (workingCanvas.width) {
       updateRuleOfThirdsGrid();
+      if (isPerspectiveMode) {
+        renderPerspectiveOverlay();
+      }
     }
   });
 
@@ -493,6 +523,9 @@
 
     if (isCropMode) {
       resetCropBox();
+    }
+    if (isPerspectiveMode) {
+      resetPerspectiveCorners();
     }
     updateMainDisplay();
   }
@@ -647,7 +680,7 @@
   btnResetCrop.addEventListener('click', () => {
     if (!workingCanvas.width) return;
     
-    // If workingCanvas has been cropped from original, restore uncropped image
+    // If workingCanvas has been cropped or perspective-rectified, restore uncropped image
     if (uncroppedCanvas.width && (workingCanvas.width !== uncroppedCanvas.width || workingCanvas.height !== uncroppedCanvas.height)) {
       workingCanvas.width = uncroppedCanvas.width;
       workingCanvas.height = uncroppedCanvas.height;
@@ -656,11 +689,15 @@
       updateMainDisplay();
     }
 
-    cropRatioSelect.value = 'free';
-    chkCropPortrait.checked = false;
-    resetCropBox();
-    if (!isCropMode) {
-      enterCropMode();
+    if (isPerspectiveMode) {
+      resetPerspectiveCorners();
+    } else {
+      cropRatioSelect.value = 'free';
+      chkCropPortrait.checked = false;
+      resetCropBox();
+      if (!isCropMode) {
+        enterCropMode();
+      }
     }
   });
 
@@ -682,7 +719,10 @@
   // Double-clicking on mainCanvas enters crop mode or applies crop
   mainCanvas.addEventListener('dblclick', (e) => {
     if (!workingCanvas.width) return;
-    if (isCropMode) {
+    if (isPerspectiveMode) {
+      applyPerspectiveCrop();
+      exitPerspectiveMode();
+    } else if (isCropMode) {
       applyCrop();
       exitCropMode();
     } else {
@@ -691,6 +731,9 @@
   });
 
   function enterCropMode() {
+    if (isPerspectiveMode) {
+      exitPerspectiveMode();
+    }
     isCropMode = true;
     btnToggleCrop.classList.add('active');
     cropOverlay.classList.remove('hidden');
@@ -913,6 +956,279 @@
     workingCanvas.height = srcH;
     workingCtx.clearRect(0, 0, srcW, srcH);
     workingCtx.drawImage(croppedCanvas, 0, 0);
+
+    updateMainDisplay();
+  }
+
+  // --- Perspective Crop Handlers (4-point projective homography) ---
+  btnTogglePerspective.addEventListener('click', () => {
+    if (!workingCanvas.width) return;
+    if (isPerspectiveMode) {
+      exitPerspectiveMode();
+    } else {
+      enterPerspectiveMode();
+    }
+  });
+
+  function enterPerspectiveMode() {
+    if (isCropMode) {
+      exitCropMode();
+    }
+    isPerspectiveMode = true;
+    btnTogglePerspective.classList.add('active');
+    perspectiveOverlay.classList.remove('hidden');
+    resetPerspectiveCorners();
+  }
+
+  function exitPerspectiveMode() {
+    isPerspectiveMode = false;
+    btnTogglePerspective.classList.remove('active');
+    perspectiveOverlay.classList.add('hidden');
+    activePerspCorner = null;
+  }
+
+  function resetPerspectiveCorners() {
+    perspCorners = [
+      { x: 0.08, y: 0.08 },
+      { x: 0.92, y: 0.08 },
+      { x: 0.92, y: 0.92 },
+      { x: 0.08, y: 0.92 }
+    ];
+    renderPerspectiveOverlay();
+  }
+
+  function renderPerspectiveOverlay() {
+    if (!workingCanvas.width || !perspectiveOverlay.clientWidth) return;
+
+    const w = perspectiveOverlay.clientWidth;
+    const h = perspectiveOverlay.clientHeight;
+
+    const pts = perspCorners.map(p => ({
+      x: p.x * w,
+      y: p.y * h
+    }));
+
+    perspHandles.forEach((handle, i) => {
+      if (handle) {
+        handle.style.left = `${pts[i].x}px`;
+        handle.style.top = `${pts[i].y}px`;
+      }
+    });
+
+    const polyPointsStr = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    perspectivePolygon.setAttribute('points', polyPointsStr);
+
+    const maskD = `M0,0 H${w} V${h} H0 Z M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)} L${pts[1].x.toFixed(1)},${pts[1].y.toFixed(1)} L${pts[2].x.toFixed(1)},${pts[2].y.toFixed(1)} L${pts[3].x.toFixed(1)},${pts[3].y.toFixed(1)} Z`;
+    perspectiveMask.setAttribute('d', maskD);
+
+    // 3x3 Perspective subdivision grid
+    function lerpPt(pA, pB, t) {
+      return { x: pA.x + (pB.x - pA.x) * t, y: pA.y + (pB.y - pA.y) * t };
+    }
+
+    const t1 = 1 / 3;
+    const t2 = 2 / 3;
+
+    const top1 = lerpPt(pts[0], pts[1], t1);
+    const top2 = lerpPt(pts[0], pts[1], t2);
+    const bot1 = lerpPt(pts[3], pts[2], t1);
+    const bot2 = lerpPt(pts[3], pts[2], t2);
+
+    const left1 = lerpPt(pts[0], pts[3], t1);
+    const left2 = lerpPt(pts[0], pts[3], t2);
+    const right1 = lerpPt(pts[1], pts[2], t1);
+    const right2 = lerpPt(pts[1], pts[2], t2);
+
+    const gridD = `
+      M${top1.x.toFixed(1)},${top1.y.toFixed(1)} L${bot1.x.toFixed(1)},${bot1.y.toFixed(1)}
+      M${top2.x.toFixed(1)},${top2.y.toFixed(1)} L${bot2.x.toFixed(1)},${bot2.y.toFixed(1)}
+      M${left1.x.toFixed(1)},${left1.y.toFixed(1)} L${right1.x.toFixed(1)},${right1.y.toFixed(1)}
+      M${left2.x.toFixed(1)},${left2.y.toFixed(1)} L${right2.x.toFixed(1)},${right2.y.toFixed(1)}
+    `;
+    perspectiveGrid.setAttribute('d', gridD);
+  }
+
+  perspHandles.forEach((handle, idx) => {
+    handle.addEventListener('mousedown', (e) => {
+      activePerspCorner = idx;
+      perspDragStart = { x: e.clientX, y: e.clientY };
+      handle.classList.add('active');
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    handle.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        activePerspCorner = idx;
+        perspDragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        handle.classList.add('active');
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, { passive: false });
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (activePerspCorner === null || !isPerspectiveMode) return;
+
+    const overlayRect = perspectiveOverlay.getBoundingClientRect();
+    if (!overlayRect.width || !overlayRect.height) return;
+
+    const newX = Math.max(0, Math.min(1, (e.clientX - overlayRect.left) / overlayRect.width));
+    const newY = Math.max(0, Math.min(1, (e.clientY - overlayRect.top) / overlayRect.height));
+
+    perspCorners[activePerspCorner] = { x: newX, y: newY };
+    renderPerspectiveOverlay();
+  });
+
+  window.addEventListener('touchmove', (e) => {
+    if (activePerspCorner === null || !isPerspectiveMode || e.touches.length !== 1) return;
+
+    const overlayRect = perspectiveOverlay.getBoundingClientRect();
+    if (!overlayRect.width || !overlayRect.height) return;
+
+    const newX = Math.max(0, Math.min(1, (e.touches[0].clientX - overlayRect.left) / overlayRect.width));
+    const newY = Math.max(0, Math.min(1, (e.touches[0].clientY - overlayRect.top) / overlayRect.height));
+
+    perspCorners[activePerspCorner] = { x: newX, y: newY };
+    renderPerspectiveOverlay();
+    e.preventDefault();
+  }, { passive: false });
+
+  function handlePerspDragEnd() {
+    if (activePerspCorner !== null) {
+      if (perspHandles[activePerspCorner]) {
+        perspHandles[activePerspCorner].classList.remove('active');
+      }
+      activePerspCorner = null;
+    }
+  }
+
+  window.addEventListener('mouseup', handlePerspDragEnd);
+  window.addEventListener('touchend', handlePerspDragEnd);
+  window.addEventListener('touchcancel', handlePerspDragEnd);
+
+  perspectiveOverlay.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    applyPerspectiveCrop();
+    exitPerspectiveMode();
+  });
+
+  function applyPerspectiveCrop() {
+    if (!workingCanvas.width || !workingCanvas.height) return;
+
+    const srcW = workingCanvas.width;
+    const srcH = workingCanvas.height;
+
+    // Source quad points in pixel coordinates: 0: TL, 1: TR, 2: BR, 3: BL
+    const S = perspCorners.map(p => ({
+      x: p.x * srcW,
+      y: p.y * srcH
+    }));
+
+    // Natural rectified width and height
+    const topWidth = Math.hypot(S[1].x - S[0].x, S[1].y - S[0].y);
+    const botWidth = Math.hypot(S[2].x - S[3].x, S[2].y - S[3].y);
+    const leftHeight = Math.hypot(S[3].x - S[0].x, S[3].y - S[0].y);
+    const rightHeight = Math.hypot(S[2].x - S[1].x, S[2].y - S[1].y);
+
+    const dstW = Math.max(10, Math.round(Math.max(topWidth, botWidth)));
+    const dstH = Math.max(10, Math.round(Math.max(leftHeight, rightHeight)));
+
+    // Projective transformation coefficients
+    const x0 = S[0].x, y0 = S[0].y;
+    const x1 = S[1].x, y1 = S[1].y;
+    const x2 = S[2].x, y2 = S[2].y;
+    const x3 = S[3].x, y3 = S[3].y;
+
+    const dx1 = x1 - x2;
+    const dx2 = x3 - x2;
+    const sx = x0 - x1 + x2 - x3;
+
+    const dy1 = y1 - y2;
+    const dy2 = y3 - y2;
+    const sy = y0 - y1 + y2 - y3;
+
+    const det = dx1 * dy2 - dx2 * dy1;
+
+    let a, b, c, d, e, f, g, h;
+    if (Math.abs(det) < 1e-8) {
+      a = x1 - x0;
+      b = x3 - x0;
+      c = x0;
+      d = y1 - y0;
+      e = y3 - y0;
+      f = y0;
+      g = 0;
+      h = 0;
+    } else {
+      g = (sx * dy2 - sy * dx2) / det;
+      h = (dx1 * sy - dy1 * sx) / det;
+      a = x1 - x0 + g * x1;
+      b = x3 - x0 + h * x3;
+      c = x0;
+      d = y1 - y0 + g * y1;
+      e = y3 - y0 + h * y3;
+      f = y0;
+    }
+
+    const srcImgData = workingCtx.getImageData(0, 0, srcW, srcH);
+    const srcData = srcImgData.data;
+
+    const dstCanvas = document.createElement('canvas');
+    dstCanvas.width = dstW;
+    dstCanvas.height = dstH;
+    const dstCtx = dstCanvas.getContext('2d');
+    const dstImgData = dstCtx.createImageData(dstW, dstH);
+    const dstData = dstImgData.data;
+
+    let dstIdx = 0;
+    for (let Y = 0; Y < dstH; Y++) {
+      const v = Y / dstH;
+      for (let X = 0; X < dstW; X++) {
+        const u = X / dstW;
+        const den = g * u + h * v + 1.0;
+        if (Math.abs(den) > 1e-10) {
+          const sX = (a * u + b * v + c) / den;
+          const sY = (d * u + e * v + f) / den;
+
+          if (sX >= 0 && sX <= srcW - 1 && sY >= 0 && sY <= srcH - 1) {
+            const xFloor = Math.floor(sX);
+            const yFloor = Math.floor(sY);
+            const xCeil = Math.min(srcW - 1, xFloor + 1);
+            const yCeil = Math.min(srcH - 1, yFloor + 1);
+
+            const fx = sX - xFloor;
+            const fy = sY - yFloor;
+            const w00 = (1 - fx) * (1 - fy);
+            const w10 = fx * (1 - fy);
+            const w01 = (1 - fx) * fy;
+            const w11 = fx * fy;
+
+            const idx00 = (yFloor * srcW + xFloor) * 4;
+            const idx10 = (yFloor * srcW + xCeil) * 4;
+            const idx01 = (yCeil * srcW + xFloor) * 4;
+            const idx11 = (yCeil * srcW + xCeil) * 4;
+
+            dstData[dstIdx]     = w00 * srcData[idx00]     + w10 * srcData[idx10]     + w01 * srcData[idx01]     + w11 * srcData[idx11];
+            dstData[dstIdx + 1] = w00 * srcData[idx00 + 1] + w10 * srcData[idx10 + 1] + w01 * srcData[idx01 + 1] + w11 * srcData[idx11 + 1];
+            dstData[dstIdx + 2] = w00 * srcData[idx00 + 2] + w10 * srcData[idx10 + 2] + w01 * srcData[idx01 + 2] + w11 * srcData[idx11 + 2];
+            dstData[dstIdx + 3] = 255;
+          } else {
+            dstData[dstIdx + 3] = 0;
+          }
+        }
+        dstIdx += 4;
+      }
+    }
+
+    dstCtx.putImageData(dstImgData, 0, 0);
+
+    workingCanvas.width = dstW;
+    workingCanvas.height = dstH;
+    workingCtx.clearRect(0, 0, dstW, dstH);
+    workingCtx.drawImage(dstCanvas, 0, 0);
 
     updateMainDisplay();
   }
